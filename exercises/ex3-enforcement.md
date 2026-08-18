@@ -13,17 +13,33 @@ deliverable is the blocked attempt, not the config file.
 ```
 git status                                  # must be clean
 python3 -m unittest discover -s tests       # Ran 56 tests ... OK
-mkdir -p .claude
+cat .claude/settings.json                   # already exists - read it before you edit it
 ```
+
+That file shipped with the repo, and it has been in effect in every session you have run today:
+
+```json
+{
+  "permissions": {
+    "deny": [
+      "Read(exercises/**)"
+    ]
+  }
+}
+```
+
+That one rule is why your own Claude session could not read the exercise briefs and do your homework
+for you. You are about to extend it. **Add to this file — do not overwrite it.**
 
 ## Steps
 
-1. **Add the deny rule (~3 min).** Create `.claude/settings.json`:
+1. **Add your deny rule (~3 min).** Add a second entry to the existing `deny` array so it reads:
 
    ```json
    {
      "permissions": {
        "deny": [
+         "Read(exercises/**)",
          "Edit(**/legacy_rules.py)"
        ]
      }
@@ -36,6 +52,7 @@ mkdir -p .claude
    {
      "permissions": {
        "deny": [
+         "Read(exercises/**)",
          "Edit(**/legacy_rules.py)"
        ]
      },
@@ -75,13 +92,16 @@ mkdir -p .claude
    try. **Watch the edit get denied.** Then decide out loud what you'd actually do: solve it in the
    rule modules, or negotiate an exception to the rule.
 
-6. Leave the repo dirty if you like — you can `git reset --hard` after, but keep `.claude/`.
+6. Leave the repo dirty if you like. Note that `git reset --hard` reverts `settings.json` to the
+   shipped one-rule version, because it is a tracked file — so if you want to keep your hook, save a
+   copy somewhere outside the repo before resetting.
 
 ## Success criteria
 
 - [ ] `/hooks` lists your `PostToolUse` hook
 - [ ] A normal edit under `ledgerline/` visibly triggers the test run
 - [ ] Claude's attempt to edit `legacy_rules.py` is **denied**, and you saw the denial
+- [ ] `Read(exercises/**)` is still in your deny array — you extended the file rather than replacing it
 - [ ] You can state what the deny rule does *not* stop
 
 ## If you're stuck
