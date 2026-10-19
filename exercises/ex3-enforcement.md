@@ -46,7 +46,8 @@ for you. You are about to extend it. **Add to this file — do not overwrite it.
    }
    ```
 
-2. **Add the test-running hook (~4 min).** Extend the same file. Fill in the two blanks:
+2. **Add the test-running hook (~4 min).** Extend the same file. Copy this whole file rather than
+   typing it:
 
    ```json
    {
@@ -63,8 +64,7 @@ for you. You are about to extend it. **Add to this file — do not overwrite it.
            "hooks": [
              {
                "type": "command",
-               "command": "FILL IN: the command that runs the test suite",
-               "if": "FILL IN: Edit(...) so this only fires for files under ledgerline/"
+               "command": "cd \"$CLAUDE_PROJECT_DIR\" && out=$(python3 -m unittest discover -s tests 2>&1) || { echo \"$out\" | tail -15 >&2; exit 2; }"
              }
            ]
          }
@@ -73,15 +73,24 @@ for you. You are about to extend it. **Add to this file — do not overwrite it.
    }
    ```
 
-   The `if` filter uses permission-rule syntax, the same shape as the deny rule above it. Matcher
-   names are the canonical tool names — `Edit|Write`, spelled exactly like that.
+   What the command does: run the tests after every edit. If they pass, print nothing — zero
+   tokens, and Claude never knows it ran. If they fail, send the last 15 lines to Claude with exit
+   code 2, which is the code that tells Claude Code "show this to the model." The hook only adds
+   context when there is something worth knowing.
 
 3. **Verify registration (~1 min).** Restart `claude` so it re-reads settings, then run `/hooks`. If
    your hook is not listed, it is not going to fire, and a hook that fails open looks exactly like no
    hook at all.
 
-4. **Trigger the hook (~2 min).** Ask Claude to make a harmless edit under `ledgerline/` — adding one
-   keyword to `ledgerline/rules/office.py` is enough. Watch the test run fire after the edit.
+4. **Make the hook speak (~2 min).** Ask Claude for an edit that breaks a test:
+
+   > Change CATEGORY_NAME in ledgerline/rules/office.py to "office_supplies". Don't run anything
+   > yourself.
+
+   Two tests assert that the category is `"office"`, so they fail. You never asked for a test run,
+   but Claude gets the failure from the hook and tells you about it — and usually offers to fix it.
+   Let it revert the change, or reset the file yourself with
+   `git checkout ledgerline/rules/office.py`.
 
 5. **Now try to break the rule (~4 min).** Paste this and push back if Claude negotiates:
 
@@ -99,7 +108,7 @@ for you. You are about to extend it. **Add to this file — do not overwrite it.
 ## Success criteria
 
 - [ ] `/hooks` lists your `PostToolUse` hook
-- [ ] A normal edit under `ledgerline/` visibly triggers the test run
+- [ ] The category rename makes Claude report failing tests you never asked it to run
 - [ ] Claude's attempt to edit `legacy_rules.py` is **denied**, and you saw the denial
 - [ ] `Read(exercises/**)` is still in your deny array — you extended the file rather than replacing it
 - [ ] You can state what the deny rule does *not* stop
@@ -107,17 +116,19 @@ for you. You are about to extend it. **Add to this file — do not overwrite it.
 ## If you're stuck
 
 1. Hook never fires? Check `/hooks` first. Then check the matcher spelling — `Edit|Write`, canonical
-   tool names only. Then check that your `if` filter isn't narrower than the file you edited.
-2. Test command fails inside the hook but works in your shell? Hooks run from the project root; make
-   sure your command is the repo-root form, not one that depends on your shell history.
-3. Deny rule not blocking? Rules evaluate deny → ask → allow, first match wins, and specificity does
+   tool names only — and that you restarted `claude` after saving the file.
+2. Nothing happened after a harmless edit? That's correct: the hook is silent when the tests pass.
+   Press Ctrl+O after an edit to see that it ran.
+3. Claude Code says the settings file is invalid? You probably dropped a quote or a backslash in the
+   command. Paste the whole file from this brief again.
+4. Deny rule not blocking? Rules evaluate deny → ask → allow, first match wins, and specificity does
    not change the order. File-path checks only consult `Edit(path)` and `Read(path)` rules — a
    `Write(path)` rule is accepted at startup and then never consulted.
-4. Claude read the file anyway? It would. Denying `Edit` does not deny `Read`, so the 898 lines can
+5. Claude read the file anyway? It would. Denying `Edit` does not deny `Read`, so the 898 lines can
    still land in your window. Ask yourself what `Read(**/legacy_rules.py)` in the deny list would
    cost you the next time Claude legitimately needs to know how normalization behaves. (Note: a
    `Read` deny also blocks Edit and Write on that path.)
-5. Someone will notice Claude could edit the file through a shell command. Deny rules cover the
+6. Someone will notice Claude could edit the file through a shell command. Deny rules cover the
    built-in file tools and recognized Bash file commands like `cat` and `sed`, but not arbitrary
    subprocesses. These are guardrails against drift, not a security boundary.
 
